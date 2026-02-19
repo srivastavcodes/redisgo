@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// ValueType represents the type of RESP value.
 type ValueType string
 
 const (
@@ -19,6 +20,7 @@ const (
 	Error   ValueType = "-"
 )
 
+// Value represents a RESP value.
 type Value struct {
 	Type  ValueType
 	Bulk  string
