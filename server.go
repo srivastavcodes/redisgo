@@ -10,21 +10,6 @@ import (
 	"net"
 )
 
-type ValueType string
-
-const (
-	Array  ValueType = "*"
-	Bulk   ValueType = "$"
-	String ValueType = "+"
-)
-
-type Value struct {
-	Type  ValueType
-	Bulk  string
-	Str   string
-	Array []Value
-}
-
 func server(cfg *config) error {
 	listen, err := net.Listen("tcp", cfg.port)
 	if err != nil {
