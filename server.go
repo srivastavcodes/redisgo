@@ -23,7 +23,7 @@ type GeneralStats struct {
 
 // RedisGo is the single shared state for the server. One instance exists per
 // running server and is passed to every handler. Fields are not individually
-// synchronized — callers are responsible for holding db.mu where needed.
+// synchronized — callers are responsible for holding db.rwm where needed.
 type RedisGo struct {
 	redisDb *RedisDb
 	conf    *Config
@@ -35,7 +35,9 @@ type RedisGo struct {
 	peakMem       uint64
 	inCompaction  bool // true if the server is currently running Aof compaction.
 	inRdbSnapshot bool // true if the server is currently snapshotting Rdb.
-	dbCopy        map[string]*Item
+
+	// todo: check if operations on redisDb can be transferred to rdbCopy.
+	rdbCopy map[string]*Item
 
 	rbdState RDbStats
 	aofStats AofStats
@@ -46,7 +48,7 @@ type RedisGo struct {
 // the Aof file is opened and EverySec fsync goroutine is started if configured.
 func NewRedisGo(conf *Config) *RedisGo {
 	server := &RedisGo{
-		redisDb:   NewRdb(),
+		redisDb:   NewRedisDb(),
 		conf:      conf,
 		startedAt: time.Now(),
 	}
@@ -54,4 +56,30 @@ func NewRedisGo(conf *Config) *RedisGo {
 		// todo: create a new aof, and sync EverySec in a goroutine.
 	}
 	return server
+}
+
+// sample is a key-value pair used during eviction candidate selection.
+type sample struct {
+	key string
+	val *Item
+}
+
+// sampleKeys returns a slice of sample key-value pairs for eviction candidate
+// selection. The returned slice is guaranteed to be at most as long as the
+// provided memSamples count. The sample returned is a random subset due to Go's
+// randomness in map iteration order.
+func (rdb *RedisDb) sampleKeys(count int) []sample {
+	rdb.rwm.RLock()
+	defer rdb.rwm.RUnlock()
+
+	samples := make([]sample, 0, count)
+	for k, v := range rdb.store {
+		samples = append(samples, sample{
+			key: k, val: v,
+		})
+		if len(samples) >= count {
+			break
+		}
+	}
+	return samples
 }
