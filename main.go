@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -10,14 +11,6 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
-type config struct {
-	port string
-	quit chan struct{}
-}
-
 func main() {
-	cfg := config{
-		port: ":6379", quit: make(chan struct{}),
-	}
-	log.Fatal(server(&cfg))
+	fmt.Println("server main")
 }
