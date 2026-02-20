@@ -37,9 +37,9 @@ func (rdb *RedisDb) Set(key, val string) {
 	defer rdb.rwm.Unlock()
 
 	if old, ok := rdb.store[key]; ok {
-		prev := rdb.memUsed.Load()
-		curr := prev - old.approxMemUsage(key)
-		rdb.memUsed.Store(curr)
+		used := old.approxMemUsage(key)
+		curr := rdb.memUsed.Load()
+		rdb.memUsed.Store(curr - used)
 	}
 	item := &Item{Value: val}
 	imem := item.approxMemUsage(key)
@@ -62,8 +62,8 @@ func (rdb *RedisDb) Get(key string) (*Item, bool) {
 	}
 	item.AccessCount++
 	item.LastUsedAt = time.Now()
-	log.Printf(
-		"key=%q accessed %d times, last used at=%v",
+
+	log.Printf("key=%q accessed %d times, last used at=%v",
 		key, item.AccessCount, item.LastUsedAt,
 	)
 	return item, true
@@ -79,12 +79,9 @@ func (rdb *RedisDb) Delete(key string) {
 	if !ok {
 		return
 	}
-	prev := rdb.memUsed.Load()
-	curr := prev - item.approxMemUsage(key)
-	rdb.memUsed.Store(curr)
+	used := item.approxMemUsage(key)
+	curr := rdb.memUsed.Load()
+	rdb.memUsed.Store(curr - used)
 	delete(rdb.store, key)
-	log.Printf(
-		"deleted key=%q, memory usage=%d bytes",
-		key, rdb.memUsed.Load(),
-	)
+	log.Printf("delete on key=%q, memory usage=%d bytes", key, rdb.memUsed.Load())
 }
