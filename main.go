@@ -1,6 +1,14 @@
 package main
 
-import "log"
+import (
+	"log"
+	"os"
+)
+
+func init() {
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+}
 
 type config struct {
 	port string

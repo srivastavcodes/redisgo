@@ -44,15 +44,15 @@ func (i *Item) hasExpired() bool {
 //
 // Used by the eviction policy to track total memory usage. Precision is not
 // required since eviction decisions tolerate some inaccuracy.
-func (i *Item) approxMemUsage(key string) int64 {
-	var total int64
+func (i *Item) approxMemUsage(key string) uint64 {
+	var total int
 	const (
 		stringHeader = 16
 		timeSize     = 24
 		mapEntry     = 32
 	)
 	total += timeSize + mapEntry
-	total += int64(stringHeader + len(key))
-	total += int64(stringHeader + len(i.Value))
-	return total
+	total += stringHeader + len(key)
+	total += stringHeader + len(i.Value)
+	return uint64(total)
 }

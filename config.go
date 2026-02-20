@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -268,6 +269,9 @@ func parseMem(str string) (uint64, error) {
 	mem, err := strconv.ParseUint(str, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid memory value %q: %w", str, err)
+	}
+	if mem != 0 && mem > math.MaxUint64/multiplier {
+		return 0, fmt.Errorf("memory value %d overflows uint64", mem)
 	}
 	return mem * multiplier, nil
 }
