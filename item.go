@@ -13,20 +13,20 @@ const unixTSEpoch int64 = -62135596800
 // Item represents a value stored in the database along with its metadata.
 // All fields are exported to support gob encoding for RDB persistence.
 type Item struct {
-	// Value is the string value stored for this key.
-	Value string
-
 	// Expiration is the expiry time for this item. If Exp.Unix() == unixTSEpoch,
 	// the item has no expiry set and will never expire passively.
 	Expiration time.Time
 
-	// LastAccess records the last time this item was read.
-	// Used by the LRU eviction policy to determine least recently used keys.
-	LastAccess time.Time
+	// Value is the string value stored for this key.
+	Value string
 
 	// AccessCount counts how many times this item has been read.
 	// Used by the LFU eviction policy to determine least frequently used keys.
 	AccessCount int
+
+	// LastUsedAt records the last time this item was read.
+	// Used by the LRU eviction policy to determine least recently used keys.
+	LastUsedAt time.Time
 }
 
 // hasExpired reports whether this item has an expiry set and that expiry has

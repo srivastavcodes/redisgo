@@ -39,7 +39,9 @@ func (rdb *RedisDb) Set(key, val string) {
 	if old, ok := rdb.store[key]; ok {
 		used := old.approxMemUsage(key)
 		curr := rdb.memUsed.Load()
-		rdb.memUsed.Store(curr - used)
+		if curr >= used {
+			rdb.memUsed.Store(curr - used)
+		}
 	}
 	item := &Item{Value: val}
 	imem := item.approxMemUsage(key)
@@ -81,7 +83,9 @@ func (rdb *RedisDb) Delete(key string) {
 	}
 	used := item.approxMemUsage(key)
 	curr := rdb.memUsed.Load()
-	rdb.memUsed.Store(curr - used)
+	if curr >= used {
+		rdb.memUsed.Store(curr - used)
+	}
 	delete(rdb.store, key)
 	log.Printf("delete on key=%q, memory usage=%d bytes", key, rdb.memUsed.Load())
 }
