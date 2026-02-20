@@ -1,65 +1,57 @@
 package main
 
-import (
-	"bufio"
-	"bytes"
-	"errors"
-	"fmt"
-	"io"
-	"log"
-	"net"
-)
+import "time"
 
-func server(cfg *config) error {
-	listen, err := net.Listen("tcp", cfg.port)
-	if err != nil {
-		return fmt.Errorf("error listening on %s: err=%w", cfg.port, err)
-	}
-	defer func() { _ = listen.Close() }()
-
-	log.Printf("listening on port: %s", cfg.port)
-	go func() {
-		for {
-			conn, err := listen.Accept()
-			if err != nil {
-				if errors.Is(err, net.ErrClosed) {
-					log.Println("connection has been closed")
-					return
-				}
-				log.Fatalf("error accepting connection: %s", err)
-			}
-			log.Printf("connected to: %s", conn.RemoteAddr())
-			go basicReadLoop(cfg, conn)
-		}
-	}()
-	<-cfg.quit
-	return nil
+// RDbStats tracks redis's persistence activity.
+type RDbStats struct {
+	lastSaveTs int64
+	saves      int
 }
 
-func basicReadLoop(cfg *config, conn net.Conn) {
-	defer func() { _ = conn.Close() }()
-	reader := bufio.NewReader(conn)
-	for {
-		request, err := reader.ReadBytes('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				log.Printf("conn closed: %s", conn.RemoteAddr())
-				return
-			}
-			log.Printf("error reading from connection: %s", err)
-			continue
-		}
-		request = bytes.TrimSpace(request)
+// AofStats tracks AOF's persistence activity.
+type AofStats struct {
+	rewrites int
+}
 
-		log.Printf("received: %s", request)
-		switch {
-		case bytes.Equal(request, []byte("ping")):
-			_, _ = conn.Write([]byte("pong\n"))
-			continue
-		case bytes.Equal(request, []byte("quit")):
-			cfg.quit <- struct{}{}
-			return
-		}
-		_, _ = conn.Write(fmt.Appendf(nil, "echo: %s\n", request))
+// GeneralStats tracks server-wide command and connection activity.
+type GeneralStats struct {
+	totalConnections int
+	expiredKeys      int
+	evictedKeys      int
+	totalCommands    int
+}
+
+// RedisGo is the single shared state for the server. One instance exists per
+// running server and is passed to every handler. Fields are not individually
+// synchronized — callers are responsible for holding db.mu where needed.
+type RedisGo struct {
+	redisDb *RedisDb
+	conf    *Config
+	// aof  *Aof
+
+	// monitors []*Client
+	startedAt     time.Time
+	clientCount   int
+	peakMem       uint64
+	inCompaction  bool // true if the server is currently running Aof compaction.
+	inRdbSnapshot bool // true if the server is currently snapshotting Rdb.
+	dbCopy        map[string]*Item
+
+	rbdState RDbStats
+	aofStats AofStats
+	genStats GeneralStats
+}
+
+// NewRedisGo initializes a new RedisGo server from conf. If Aof is enabled,
+// the Aof file is opened and EverySec fsync goroutine is started if configured.
+func NewRedisGo(conf *Config) *RedisGo {
+	server := &RedisGo{
+		redisDb:   NewRdb(),
+		conf:      conf,
+		startedAt: time.Now(),
 	}
+	if conf.aofEnabled {
+		// todo: create a new aof, and sync EverySec in a goroutine.
+	}
+	return server
 }
