@@ -89,3 +89,35 @@ func (rdb *RedisDb) Delete(key string) {
 	delete(rdb.store, key)
 	log.Printf("delete on key=%q, memory usage=%d bytes", key, rdb.memUsed.Load())
 }
+
+// sampleKeys returns a slice of sample key-value pairs for eviction candidate
+// selection. The returned slice is guaranteed to be at most as long as the
+// provided memSamples count. The sample returned is a random subset due to Go's
+// randomness in map iteration order.
+func (rdb *RedisDb) sampleKeys(count int) []sample {
+	rdb.rwm.RLock()
+	defer rdb.rwm.RUnlock()
+
+	samples := make([]sample, 0, count)
+	for k, v := range rdb.store {
+		samples = append(samples, sample{
+			key: k, val: v,
+		})
+		if len(samples) >= count {
+			break
+		}
+	}
+	return samples
+}
+
+// Snapshot returns a shallow copy of the underlying store.
+func (rdb *RedisDb) Snapshot() map[string]*Item {
+	rdb.rwm.RLock()
+	defer rdb.rwm.RUnlock()
+
+	copyDb := make(map[string]*Item, len(rdb.store))
+	for k, v := range rdb.store {
+		copyDb[k] = v
+	}
+	return copyDb
+}
